@@ -1,0 +1,10 @@
+/* Кнопки скрытия боковых панелей (sidebars.js): тема их не прячет сама */
+@media (min-width: 992px) {
+  #pst-primary-sidebar.pst-sidebar-hidden { display: none !important; }
+}
+@media (min-width: 1200px) {
+  .bd-sidebar-secondary.pst-sidebar-hidden { display: none !important; }
+}
+/* Схемы: широкие SVG прокручиваются на телефоне, а не сжимаются в нечитаемое */
+.diagram { overflow-x: auto; margin: 1rem 0 1.5rem; }
+.diagram svg { min-width: 640px; }
