@@ -1,0 +1,386 @@
+# Псевдо-источники лейкхауса для OpenMetadata: Kafka → bronze и PostgreSQL АБС → bronze.
+# Messaging-сервис: topics (схема сообщения — fields); lineage: рёбра источник → топик → таблица.
+generated: '2026-11-04'
+generator: make om-sources (neo/openmetadata.py) — из кода стенда, руками не править
+services:
+  messaging:
+    name: kafka
+    type: Kafka
+    bootstrapServers: kafka:9092
+    note: имена сервисов — как заведены в вашем OpenMetadata, подставить свои
+  database:
+    name: abs-postgres
+    type: Postgres
+    host: abs-db
+    database: abs
+    note: 'синтетические АБС стенда: схемы abs (SC-Bank) и colvir'
+  tables:
+    name: trino
+    type: Trino
+    note: через этот сервис OpenMetadata видит iceberg.bronze.*
+topics:
+- name: card.auth
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: Авторизации процессинга, одно сообщение — одна авторизация; ключ — card_id
+  producer: процессинг (на стенде — генератор neo.generator)
+  fields:
+  - name: auth_id
+    dataType: STRING
+  - name: card_id
+    dataType: LONG
+  - name: pan_last4
+    dataType: STRING
+  - name: event_ts
+    dataType: TIMESTAMPZ
+  - name: amount
+    dataType: DOUBLE
+  - name: currency
+    dataType: STRING
+  - name: mcc
+    dataType: STRING
+  - name: merchant
+    dataType: STRING
+  - name: country
+    dataType: STRING
+  - name: channel
+    dataType: STRING
+  - name: result
+    dataType: STRING
+  - name: decline_reason
+    dataType: STRING
+  sink:
+    table: iceberg.bronze.card_auth
+    loader: neo.bronze_stream
+    mode: микробатч, хотя бы один раз; дубли убираются в ODS по auth_id
+  onStand: true
+- name: abs.abs.clients
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы abs.clients: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium abs-cdc (PostgresConnector, pgoutput, слот neo_lakehouse)
+  upstream:
+    service: abs-postgres
+    table: abs.abs.clients
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'abs.clients'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: true
+- name: abs.abs.accounts
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы abs.accounts: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium abs-cdc (PostgresConnector, pgoutput, слот neo_lakehouse)
+  upstream:
+    service: abs-postgres
+    table: abs.abs.accounts
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'abs.accounts'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: true
+- name: abs.abs.cards
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы abs.cards: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium abs-cdc (PostgresConnector, pgoutput, слот neo_lakehouse)
+  upstream:
+    service: abs-postgres
+    table: abs.abs.cards
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'abs.cards'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: true
+- name: abs.abs.deposits
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы abs.deposits: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium abs-cdc (PostgresConnector, pgoutput, слот neo_lakehouse)
+  upstream:
+    service: abs-postgres
+    table: abs.abs.deposits
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'abs.deposits'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: true
+- name: abs.abs.loans
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы abs.loans: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium abs-cdc (PostgresConnector, pgoutput, слот neo_lakehouse)
+  upstream:
+    service: abs-postgres
+    table: abs.abs.loans
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'abs.loans'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: true
+- name: abs.abs.fx_rates
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы abs.fx_rates: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium abs-cdc (PostgresConnector, pgoutput, слот neo_lakehouse)
+  upstream:
+    service: abs-postgres
+    table: abs.abs.fx_rates
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'abs.fx_rates'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: false
+- name: abs.abs.postings
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы abs.postings: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium abs-cdc (PostgresConnector, pgoutput, слот neo_lakehouse)
+  upstream:
+    service: abs-postgres
+    table: abs.abs.postings
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'abs.postings'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: true
+- name: abs.abs.fraud_claims
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы abs.fraud_claims: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium abs-cdc (PostgresConnector, pgoutput, слот neo_lakehouse)
+  upstream:
+    service: abs-postgres
+    table: abs.abs.fraud_claims
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'abs.fraud_claims'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: true
+- name: abs.abs.nostro
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы abs.nostro: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium abs-cdc (PostgresConnector, pgoutput, слот neo_lakehouse)
+  upstream:
+    service: abs-postgres
+    table: abs.abs.nostro
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'abs.nostro'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: false
+- name: abs.abs.fx_deals
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы abs.fx_deals: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium abs-cdc (PostgresConnector, pgoutput, слот neo_lakehouse)
+  upstream:
+    service: abs-postgres
+    table: abs.abs.fx_deals
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'abs.fx_deals'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: true
+- name: colvir.colvir.cli
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы colvir.cli: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium colvir-cdc (PostgresConnector, pgoutput, слот neo_lakehouse_colvir)
+  upstream:
+    service: abs-postgres
+    table: abs.colvir.cli
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'colvir.cli'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: true
+- name: colvir.colvir.acc
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы colvir.acc: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium colvir-cdc (PostgresConnector, pgoutput, слот neo_lakehouse_colvir)
+  upstream:
+    service: abs-postgres
+    table: abs.colvir.acc
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'colvir.acc'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: true
+- name: colvir.colvir.dea
+  partitions: 3
+  retentionHours: 168
+  schemaType: JSON
+  description: 'CDC таблицы colvir.dea: конверт Debezium (op, before, after, source, ts_ms)'
+  producer: Debezium colvir-cdc (PostgresConnector, pgoutput, слот neo_lakehouse_colvir)
+  upstream:
+    service: abs-postgres
+    table: abs.colvir.dea
+  sink:
+    table: iceberg.bronze.cdc_abs
+    loader: neo.bronze_stream
+    filter: source_table = 'colvir.dea'
+    mode: микробатч; все CDC в одной таблице (op, before/after JSON), дубли — по topic+partition+offset
+  onStand: true
+batch:
+- source: abs.abs.clients
+  table: iceberg.bronze.abs_clients
+  loader: neo.bronze_batch
+  mode: snapshot
+- source: abs.abs.accounts
+  table: iceberg.bronze.abs_accounts
+  loader: neo.bronze_batch
+  mode: snapshot
+- source: abs.abs.cards
+  table: iceberg.bronze.abs_cards
+  loader: neo.bronze_batch
+  mode: snapshot
+- source: abs.abs.deposits
+  table: iceberg.bronze.abs_deposits
+  loader: neo.bronze_batch
+  mode: snapshot
+- source: abs.abs.loans
+  table: iceberg.bronze.abs_loans
+  loader: neo.bronze_batch
+  mode: snapshot
+- source: abs.abs.fx_rates
+  table: iceberg.bronze.abs_fx_rates
+  loader: neo.bronze_batch
+  mode: snapshot
+- source: abs.abs.postings
+  table: iceberg.bronze.abs_postings
+  loader: neo.bronze_batch
+  mode: incremental, водяной знак posting_id
+- source: abs.abs.fraud_claims
+  table: iceberg.bronze.abs_fraud_claims
+  loader: neo.bronze_batch
+  mode: incremental, водяной знак reported_at
+- source: abs.abs.nostro
+  table: iceberg.bronze.abs_nostro
+  loader: neo.bronze_batch
+  mode: snapshot
+- source: abs.abs.fx_deals
+  table: iceberg.bronze.abs_fx_deals
+  loader: neo.bronze_batch
+  mode: snapshot
+- source: abs.colvir.cli
+  table: iceberg.bronze.colvir_cli
+  loader: neo.bronze_batch
+  mode: snapshot
+- source: abs.colvir.acc
+  table: iceberg.bronze.colvir_acc
+  loader: neo.bronze_batch
+  mode: snapshot
+- source: abs.colvir.dea
+  table: iceberg.bronze.colvir_dea
+  loader: neo.bronze_batch
+  mode: snapshot
+lineage:
+- from: abs-postgres.abs.abs.clients
+  to: kafka.abs.abs.clients
+- from: abs-postgres.abs.abs.accounts
+  to: kafka.abs.abs.accounts
+- from: abs-postgres.abs.abs.cards
+  to: kafka.abs.abs.cards
+- from: abs-postgres.abs.abs.deposits
+  to: kafka.abs.abs.deposits
+- from: abs-postgres.abs.abs.loans
+  to: kafka.abs.abs.loans
+- from: abs-postgres.abs.abs.fx_rates
+  to: kafka.abs.abs.fx_rates
+- from: abs-postgres.abs.abs.postings
+  to: kafka.abs.abs.postings
+- from: abs-postgres.abs.abs.fraud_claims
+  to: kafka.abs.abs.fraud_claims
+- from: abs-postgres.abs.abs.nostro
+  to: kafka.abs.abs.nostro
+- from: abs-postgres.abs.abs.fx_deals
+  to: kafka.abs.abs.fx_deals
+- from: abs-postgres.abs.colvir.cli
+  to: kafka.colvir.colvir.cli
+- from: abs-postgres.abs.colvir.acc
+  to: kafka.colvir.colvir.acc
+- from: abs-postgres.abs.colvir.dea
+  to: kafka.colvir.colvir.dea
+- from: kafka.card.auth
+  to: iceberg.bronze.card_auth
+- from: kafka.abs.abs.clients
+  to: iceberg.bronze.cdc_abs
+- from: kafka.abs.abs.accounts
+  to: iceberg.bronze.cdc_abs
+- from: kafka.abs.abs.cards
+  to: iceberg.bronze.cdc_abs
+- from: kafka.abs.abs.deposits
+  to: iceberg.bronze.cdc_abs
+- from: kafka.abs.abs.loans
+  to: iceberg.bronze.cdc_abs
+- from: kafka.abs.abs.fx_rates
+  to: iceberg.bronze.cdc_abs
+- from: kafka.abs.abs.postings
+  to: iceberg.bronze.cdc_abs
+- from: kafka.abs.abs.fraud_claims
+  to: iceberg.bronze.cdc_abs
+- from: kafka.abs.abs.nostro
+  to: iceberg.bronze.cdc_abs
+- from: kafka.abs.abs.fx_deals
+  to: iceberg.bronze.cdc_abs
+- from: kafka.colvir.colvir.cli
+  to: iceberg.bronze.cdc_abs
+- from: kafka.colvir.colvir.acc
+  to: iceberg.bronze.cdc_abs
+- from: kafka.colvir.colvir.dea
+  to: iceberg.bronze.cdc_abs
+- from: abs-postgres.abs.abs.clients
+  to: iceberg.bronze.abs_clients
+- from: abs-postgres.abs.abs.accounts
+  to: iceberg.bronze.abs_accounts
+- from: abs-postgres.abs.abs.cards
+  to: iceberg.bronze.abs_cards
+- from: abs-postgres.abs.abs.deposits
+  to: iceberg.bronze.abs_deposits
+- from: abs-postgres.abs.abs.loans
+  to: iceberg.bronze.abs_loans
+- from: abs-postgres.abs.abs.fx_rates
+  to: iceberg.bronze.abs_fx_rates
+- from: abs-postgres.abs.abs.postings
+  to: iceberg.bronze.abs_postings
+- from: abs-postgres.abs.abs.fraud_claims
+  to: iceberg.bronze.abs_fraud_claims
+- from: abs-postgres.abs.abs.nostro
+  to: iceberg.bronze.abs_nostro
+- from: abs-postgres.abs.abs.fx_deals
+  to: iceberg.bronze.abs_fx_deals
+- from: abs-postgres.abs.colvir.cli
+  to: iceberg.bronze.colvir_cli
+- from: abs-postgres.abs.colvir.acc
+  to: iceberg.bronze.colvir_acc
+- from: abs-postgres.abs.colvir.dea
+  to: iceberg.bronze.colvir_dea
